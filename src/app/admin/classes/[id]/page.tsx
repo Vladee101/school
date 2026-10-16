@@ -32,6 +32,7 @@ export default async function ClassPage({ params }: PageProps<"/admin/classes/[i
       <div>
         <Link href="/admin/classes" className="text-sm text-blue-700 hover:underline">← Классы</Link>
         <h1 className="mt-2 text-2xl font-bold">Класс {cls.name}, {cls.academicYear}</h1>
+        <Link href={`/admin/classes/${cls.id}/schedule`} className="mt-1 inline-block text-sm text-blue-700 hover:underline">Расписание класса →</Link>
       </div>
 
       <section className={cardCls}>

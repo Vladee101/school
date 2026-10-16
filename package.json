@@ -16,6 +16,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@vercel/blob": "^2.8.2",
     "argon2": "^0.45.1",
     "dotenv": "^18.0.8",
     "next": "16.4.2",
