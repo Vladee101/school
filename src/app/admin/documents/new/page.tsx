@@ -1,3 +1,4 @@
+import { mergeCategories } from "@/lib/doc-categories";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/dal";
 import { ActionForm } from "@/components/action-form";
@@ -8,7 +9,7 @@ export const metadata = { title: "Новый документ" };
 
 export default async function NewDocumentPage() {
   await requireAdmin();
-  const categories = (await prisma.document.findMany({ distinct: ["category"], select: { category: true } })).map((c) => c.category);
+  const categories = mergeCategories((await prisma.document.findMany({ distinct: ["category"], select: { category: true } })).map((c) => c.category));
   return (
     <main className="max-w-xl">
       <h1 className="mb-4 text-2xl font-bold">Новый документ</h1>

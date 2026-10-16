@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { mergeCategories } from "@/lib/doc-categories";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/dal";
 import { ActionForm } from "@/components/action-form";
@@ -16,7 +17,7 @@ export default async function EditDocumentPage({ params }: PageProps<"/admin/doc
   if (!Number.isInteger(id) || id <= 0) notFound();
   const doc = await prisma.document.findUnique({ where: { id } });
   if (!doc) notFound();
-  const categories = (await prisma.document.findMany({ distinct: ["category"], select: { category: true } })).map((c) => c.category);
+  const categories = mergeCategories((await prisma.document.findMany({ distinct: ["category"], select: { category: true } })).map((c) => c.category));
 
   return (
     <main className="max-w-xl space-y-6">
