@@ -108,3 +108,20 @@ export async function resetPassword(id: number, _: FormState, formData: FormData
   await destroyAllSessions(id);
   return { ok: "Временный пароль задан, при следующем входе потребуется смена" };
 }
+
+/**
+ * Удаление разрешено только пользователю без результатов тестов (иначе теряется история) и не себе.
+ * Классы удаляемого учителя остаются без учителя, сессии и членство в классе удаляются каскадно.
+ */
+export async function deleteUser(id: number) {
+  const admin = await requireAdmin();
+  if (id === admin.id) return;
+
+  const user = await prisma.user.findUnique({ where: { id }, include: { _count: { select: { results: true } } } });
+  if (!user || user._count.results > 0) return;
+
+  await prisma.user.delete({ where: { id } });
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/classes");
+  redirect("/admin/users");
+}

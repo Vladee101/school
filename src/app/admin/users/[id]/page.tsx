@@ -3,19 +3,20 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/dal";
 import { ActionForm } from "@/components/action-form";
-import { Field, cardCls, inputCls } from "@/components/ui";
-import { resetPassword, updateUser } from "../actions";
+import { Field, cardCls, dangerCls, inputCls } from "@/components/ui";
+import { ConfirmButton } from "@/components/confirm-button";
+import { deleteUser, resetPassword, updateUser } from "../actions";
 
 export const metadata = { title: "Пользователь" };
 
 const ROLE_LABEL = { student: "Ученик", teacher: "Учитель", admin: "Администратор" } as const;
 
 export default async function EditUserPage({ params }: PageProps<"/admin/users/[id]">) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
-  const user = await prisma.user.findUnique({ where: { id }, include: { studentClass: true, taughtClasses: true } });
+  const user = await prisma.user.findUnique({ where: { id }, include: { studentClass: true, taughtClasses: true, _count: { select: { results: true } } } });
   if (!user) notFound();
   const classes = user.role === "student" ? await prisma.schoolClass.findMany({ orderBy: [{ academicYear: "desc" }, { name: "asc" }] }) : [];
 
@@ -61,6 +62,28 @@ export default async function EditUserPage({ params }: PageProps<"/admin/users/[
             <input name="password" type="text" required autoComplete="off" className={inputCls} />
           </Field>
         </ActionForm>
+      </section>
+
+      <section className={cardCls}>
+        <h2 className="mb-2 font-semibold">Удаление</h2>
+        {user.id === admin.id ? (
+          <p className="text-sm text-gray-600">Собственную учётную запись удалить нельзя.</p>
+        ) : user._count.results > 0 ? (
+          <p className="text-sm text-gray-600">
+            Удалить нельзя: у пользователя есть результаты тестов ({user._count.results}). Чтобы закрыть доступ, снимите галочку
+            «Учётная запись активна».
+          </p>
+        ) : (
+          <form action={deleteUser.bind(null, user.id)}>
+            <p className="mb-3 text-sm text-gray-600">
+              Учётная запись будет удалена безвозвратно.
+              {user.role === "teacher" && user.taughtClasses.length > 0 && ` Классы (${user.taughtClasses.map((c) => c.name).join(", ")}) останутся без учителя.`}
+            </p>
+            <ConfirmButton message={`Удалить пользователя «${user.fullName}» безвозвратно?`} className={dangerCls}>
+              Удалить пользователя
+            </ConfirmButton>
+          </form>
+        )}
       </section>
     </main>
   );
