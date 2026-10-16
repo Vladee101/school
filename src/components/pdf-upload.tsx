@@ -33,7 +33,13 @@ export function PdfUpload({ currentUrl }: { currentUrl?: string }) {
       setUrl(blob.url);
       setStatus({ kind: "ok", text: `Загружено: ${file.name}` });
     } catch (err) {
-      setStatus({ kind: "error", text: err instanceof Error ? err.message : "Не удалось загрузить файл" });
+      const msg = err instanceof Error ? err.message : "";
+      setStatus({
+        kind: "error",
+        text: msg.includes("client token")
+          ? "Не удалось получить разрешение на загрузку. Проверьте, что вы вошли как администратор и что на сервере задан BLOB_READ_WRITE_TOKEN."
+          : msg || "Не удалось загрузить файл",
+      });
     }
   }
 
