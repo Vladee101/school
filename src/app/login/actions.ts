@@ -1,9 +1,11 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getDummyHash, verifyPassword } from "@/lib/password";
+import { clearFailedLogins, isLoginBlocked, recordFailedLogin } from "@/lib/rate-limit";
 import { createSession } from "@/lib/session";
 import { ROLE_HOME } from "@/lib/roles";
 
@@ -14,16 +16,31 @@ const schema = z.object({
 
 export type LoginState = { error?: string } | undefined;
 
+async function clientIp() {
+  const h = await headers();
+  return h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || "unknown";
+}
+
 export async function login(_: LoginState, formData: FormData): Promise<LoginState> {
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { login, password } = parsed.data;
+  const ip = await clientIp();
 
-  const user = await prisma.user.findUnique({ where: { login: parsed.data.login } });
-  const ok = await verifyPassword(user?.passwordHash ?? (await getDummyHash()), parsed.data.password);
+  if (await isLoginBlocked(login, ip)) {
+    return { error: "Слишком много неудачных попыток входа. Попробуйте через 15 минут." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { login } });
+  const ok = await verifyPassword(user?.passwordHash ?? (await getDummyHash()), password);
 
   // Одинаковое сообщение для неверного пароля, неизвестного и неактивного пользователя.
-  if (!user || !ok || !user.isActive) return { error: "Неверный логин или пароль" };
+  if (!user || !ok || !user.isActive) {
+    await recordFailedLogin(login, ip);
+    return { error: "Неверный логин или пароль" };
+  }
 
+  await clearFailedLogins(login);
   await createSession(user.id);
   redirect(user.mustChangePassword ? "/change-password" : ROLE_HOME[user.role]);
 }

@@ -220,3 +220,13 @@ model ScheduleEntry {
   @@index([classId, academicYear])
   @@map("schedule_entries")
 }
+
+// Неудачные попытки входа (ограничение перебора пароля). Ключ: "l:<логин>" или "i:<ip>".
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  key       String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([key, createdAt])
+  @@map("login_attempts")
+}
