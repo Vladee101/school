@@ -25,7 +25,7 @@ export function PdfUpload({ currentUrl }: { currentUrl?: string }) {
     }
     setStatus({ kind: "busy", text: "Загрузка…" });
     try {
-      const blob = await uploadPresigned(`documents/${file.name}`, file, {
+      const blob = await uploadPresigned(`documents/${crypto.randomUUID()}.pdf`, file, {
         access: "public",
         contentType: "application/pdf",
         handleUploadUrl: "/api/blob/upload",
