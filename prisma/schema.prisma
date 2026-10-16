@@ -1,0 +1,222 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  student
+  teacher
+  admin
+}
+
+enum TypeCode {
+  CH_P
+  CH_T
+  CH_CH
+  CH_Z
+  CH_HO
+}
+
+enum Option {
+  A
+  B
+}
+
+model User {
+  id                 Int      @id @default(autoincrement())
+  login              String   @unique
+  passwordHash       String   @map("password_hash")
+  fullName           String   @map("full_name")
+  role               Role
+  email              String?
+  mustChangePassword Boolean  @default(true) @map("must_change_password")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  createdById        Int?     @map("created_by")
+  createdBy          User?    @relation("CreatedBy", fields: [createdById], references: [id])
+  createdUsers       User[]   @relation("CreatedBy")
+
+  sessions       Session[]
+  taughtClasses  SchoolClass[]  @relation("ClassTeacher")
+  studentClass   StudentClass?
+  results        TestResult[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id // sha256 токена
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model SchoolClass {
+  id           Int             @id @default(autoincrement())
+  name         String
+  academicYear String          @map("academic_year")
+  teacherId    Int?            @map("teacher_id") // только role = teacher (проверяется в сервисе)
+  teacher      User?           @relation("ClassTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
+  students     StudentClass[]
+  schedule     ScheduleEntry[]
+
+  @@unique([name, academicYear])
+  @@index([teacherId])
+  @@map("classes")
+}
+
+// В MVP ученик состоит ровно в одном классе (studentId unique).
+model StudentClass {
+  studentId    Int         @id @map("student_id")
+  student      User        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId      Int         @map("class_id")
+  class        SchoolClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  academicYear String      @map("academic_year")
+
+  @@index([classId])
+  @@map("student_classes")
+}
+
+model Test {
+  id          Int          @id @default(autoincrement())
+  name        String
+  description String?
+  type        String       @unique // klimov_ddo
+  isActive    Boolean      @default(true) @map("is_active")
+  questions   Question[]
+  results     TestResult[]
+
+  @@map("tests")
+}
+
+model Question {
+  id             Int      @id @default(autoincrement())
+  testId         Int      @map("test_id")
+  test           Test     @relation(fields: [testId], references: [id])
+  questionNumber Int      @map("question_number")
+  optionA        String   @map("option_a")
+  optionB        String   @map("option_b")
+  scaleA         TypeCode @map("scale_a")
+  scaleB         TypeCode @map("scale_b")
+  answers        Answer[]
+
+  @@unique([testId, questionNumber])
+  @@map("questions")
+}
+
+model OrientationType {
+  id          Int          @id @default(autoincrement())
+  code        TypeCode     @unique
+  name        String
+  description String
+  isActive    Boolean      @default(true) @map("is_active")
+  professions Profession[]
+  dominantIn  ResultDominantType[]
+
+  @@map("orientation_types")
+}
+
+model Profession {
+  id          Int             @id @default(autoincrement())
+  name        String
+  description String
+  typeId      Int             @map("type_id")
+  type        OrientationType @relation(fields: [typeId], references: [id])
+  isActive    Boolean         @default(true) @map("is_active")
+
+  @@index([typeId])
+  @@map("professions")
+}
+
+// Неизменяемый результат. Сумма score_* = 20 (CHECK добавляется в миграции).
+model TestResult {
+  id          Int      @id @default(autoincrement())
+  studentId   Int      @map("student_id")
+  student     User     @relation(fields: [studentId], references: [id])
+  testId      Int      @map("test_id")
+  test        Test     @relation(fields: [testId], references: [id])
+  completedAt DateTime @default(now()) @map("completed_at")
+  scoreChP    Int      @map("score_chp")
+  scoreChT    Int      @map("score_cht")
+  scoreChCh   Int      @map("score_chch")
+  scoreChZ    Int      @map("score_chz")
+  scoreChHo   Int      @map("score_chho")
+
+  answers  Answer[]
+  dominant ResultDominantType[]
+
+  @@index([studentId, completedAt])
+  @@map("test_results")
+}
+
+model ResultDominantType {
+  resultId Int             @map("result_id")
+  result   TestResult      @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  typeId   Int             @map("type_id")
+  type     OrientationType @relation(fields: [typeId], references: [id])
+
+  @@id([resultId, typeId])
+  @@index([typeId])
+  @@map("result_dominant_types")
+}
+
+model Answer {
+  id           Int        @id @default(autoincrement())
+  resultId     Int        @map("result_id")
+  result       TestResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  questionId   Int        @map("question_id")
+  question     Question   @relation(fields: [questionId], references: [id])
+  chosenOption Option     @map("chosen_option")
+
+  @@unique([resultId, questionId])
+  @@map("answers")
+}
+
+model News {
+  id          Int       @id @default(autoincrement())
+  title       String
+  shortText   String    @map("short_text")
+  content     String
+  publishedAt DateTime? @map("published_at")
+  isPublished Boolean   @default(false) @map("is_published")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([isPublished, publishedAt])
+  @@map("news")
+}
+
+model Document {
+  id          Int       @id @default(autoincrement())
+  name        String
+  category    String
+  filePath    String    @map("file_path") // URL в Vercel Blob
+  publishedAt DateTime? @map("published_at")
+  isPublished Boolean   @default(false) @map("is_published")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([isPublished, publishedAt])
+  @@map("documents")
+}
+
+model ScheduleEntry {
+  id           Int         @id @default(autoincrement())
+  classId      Int         @map("class_id")
+  class        SchoolClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  academicYear String      @map("academic_year")
+  dayOfWeek    Int         @map("day_of_week") // 1..7
+  lessonNumber Int         @map("lesson_number")
+  subject      String
+  teacherName  String?     @map("teacher_name")
+  room         String?
+
+  @@index([classId, academicYear])
+  @@map("schedule_entries")
+}
