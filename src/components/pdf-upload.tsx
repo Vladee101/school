@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { upload } from "@vercel/blob/client";
+import { uploadPresigned } from "@vercel/blob/client";
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
@@ -25,7 +25,7 @@ export function PdfUpload({ currentUrl }: { currentUrl?: string }) {
     }
     setStatus({ kind: "busy", text: "Загрузка…" });
     try {
-      const blob = await upload(`documents/${file.name}`, file, {
+      const blob = await uploadPresigned(`documents/${file.name}`, file, {
         access: "public",
         contentType: "application/pdf",
         handleUploadUrl: "/api/blob/upload",
@@ -36,8 +36,8 @@ export function PdfUpload({ currentUrl }: { currentUrl?: string }) {
       const msg = err instanceof Error ? err.message : "";
       setStatus({
         kind: "error",
-        text: msg.includes("client token")
-          ? "Не удалось получить разрешение на загрузку. Проверьте, что вы вошли как администратор и что на сервере задан BLOB_READ_WRITE_TOKEN."
+        text: (msg.includes("client token") || msg.includes("presigned"))
+          ? "Не удалось получить разрешение на загрузку. Проверьте, что вы вошли как администратор и что к проекту подключено хранилище Blob (BLOB_STORE_ID или BLOB_READ_WRITE_TOKEN)."
           : msg || "Не удалось загрузить файл",
       });
     }
