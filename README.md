@@ -1,36 +1,134 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Профориентационный портал школы
 
-## Getting Started
+Школьный веб-портал: публичные новости, документы PDF, расписание и информация о школе, а также профориентационный тест
+**ДДО Климова** для учеников с кабинетом, панелью учителя и администрированием.
 
-First, run the development server:
+Исходное ТЗ: [docs/TZ_updated.html](docs/TZ_updated.html). Архитектурные решения: [docs/adr](docs/adr/README.md).
+Ручные проверки: [docs/manual-testing.md](docs/manual-testing.md).
+
+## Стек
+
+| Область | Технология |
+|---|---|
+| Фреймворк | Next.js 16 (App Router), React 19, TypeScript |
+| БД | PostgreSQL (Neon), Prisma 7 |
+| Файлы | Vercel Blob (публичные PDF) |
+| Авторизация | собственные сессии в БД + cookie, пароли argon2 |
+| Валидация | Zod |
+| Интерфейс | Tailwind CSS 4 |
+| Тесты | Vitest |
+| Хостинг | Vercel |
+
+## Роли
+
+| Роль | Что может |
+|---|---|
+| Гость | смотреть новости, документы, расписание, «О школе» |
+| Ученик (`student`) | проходить тест, смотреть свои результаты и историю |
+| Учитель (`teacher`) | смотреть назначенные классы, учеников, их результаты, сводку и фильтр по типам. Ничего не изменяет |
+| Администратор (`admin`) | управлять пользователями, классами, расписанием, новостями, документами, профессиями; смотреть результаты всех классов. Тест и результаты не редактирует |
+
+Самостоятельной регистрации нет: учётные записи создаёт администратор и выдаёт временный пароль. При первом входе
+пароль нужно сменить.
+
+## Быстрый старт (локально)
+
+Требуется Node.js 20+ и база PostgreSQL (например, бесплатная в [Neon](https://neon.tech)).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Создайте файл `.env` по образцу [.env.example](.env.example):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Переменная | Назначение |
+|---|---|
+| `DATABASE_URL` | строка подключения Neon (pooled, с `-pooler` в имени хоста) |
+| `DIRECT_URL` | необязательно: прямой адрес для миграций. Если не задан, берётся `DATABASE_URL` без `-pooler` |
+| `ADMIN_LOGIN`, `ADMIN_PASSWORD` | первый администратор, создаётся сидом |
+| `BLOB_READ_WRITE_TOKEN` | токен публичного хранилища Vercel Blob (нужен для загрузки PDF) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Примените миграции и заполните справочники (5 типов направленности, тест Климова с 20 вопросами и ключом, администратор):
 
-## Learn More
+```bash
+npm run db:deploy
+npm run db:seed
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Сайт откроется на http://localhost:3000. Войдите под `ADMIN_LOGIN`: при первом входе система потребует сменить пароль.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Команды
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Команда | Что делает |
+|---|---|
+| `npm run dev` | сервер разработки |
+| `npm run build` / `npm start` | production-сборка и запуск |
+| `npm test` | модульные тесты (ключ и подсчёт Климова, политика паролей) |
+| `npm run lint` | ESLint |
+| `npm run db:migrate` | создать и применить новую миграцию (разработка) |
+| `npm run db:deploy` | применить существующие миграции (production) |
+| `npm run db:seed` | заполнить справочники и администратора (повторный запуск безопасен) |
 
-## Deploy on Vercel
+## Как пользоваться
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Администратор
+1. **Классы** → «Создать класс»: название (`9А`), учебный год (`2026/2027`).
+2. **Пользователи** → «Создать пользователя»: роль, ФИО, логин, временный пароль, для ученика класс. Учителя
+   назначаются классу в карточке класса.
+3. **Расписание**: карточка класса → «Расписание класса». Добавляйте уроки по одному или копируйте расписание другого класса.
+4. **Новости**: создайте, при необходимости укажите дату публикации, отметьте «Опубликована». «Снять» возвращает в черновики.
+5. **Документы**: загрузите PDF (до 20 МБ), укажите название и категорию, опубликуйте.
+6. **Профессии**: добавляйте профессии к типам направленности. Тексты пяти типов правятся на странице «Описания типов».
+7. **Результаты учеников**: ссылка в меню админки, те же страницы, что у учителя, для всех классов.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Пользователей и классы удалять нельзя (сохраняются результаты). Пользователя можно отключить, пароль сбросить, роль после
+создания не меняется.
+
+### Учитель
+Вход → «Панель учителя»: класс → сводка (сколько прошли тест, распределение по типам), таблица учеников, фильтр по типу
+и «Не проходили тест». Кнопка «История» открывает все прохождения ученика и подробный результат.
+
+### Ученик
+Вход → личный кабинет → «Пройти тест». Нужно ответить на все 20 пар. Результат сохраняется только после «Завершить тест»,
+незавершённое прохождение не сохраняется. После завершения видны баллы, преобладающее направление и рекомендуемые профессии.
+История всех прохождений доступна в кабинете.
+
+## Деплой на Vercel
+
+1. Импортируйте репозиторий как Next.js-проект.
+2. Подключите Neon Postgres и Blob через Vercel → Storage (Blob в режиме **Public**).
+3. В Environment Variables задайте `DATABASE_URL`, `ADMIN_LOGIN`, `ADMIN_PASSWORD` (`BLOB_READ_WRITE_TOKEN` добавит интеграция).
+4. Миграции применяйте вручную с рабочей машины: `npm run db:deploy` (после новой миграции делайте это до деплоя кода).
+5. Первичное заполнение: `npm run db:seed` один раз.
+
+`postinstall` запускает `prisma generate`, отдельной команды для клиента Prisma в сборке не нужно.
+
+## Структура проекта
+
+```
+prisma/               схема, миграции, сид
+src/app/              страницы и server actions (публичные, /cabinet, /teacher, /admin, /api/blob)
+src/components/       общие компоненты интерфейса
+src/lib/              доступ к БД, сессии, права (dal.ts), ключ Климова и подсчёт, лимит входа
+src/proxy.ts          быстрая проверка cookie для закрытых разделов
+docs/                 ТЗ, ADR, ручные проверки
+```
+
+Права проверяются на сервере: `requireUser(roles)` из [src/lib/dal.ts](src/lib/dal.ts) вызывается в каждой странице и
+action; `src/proxy.ts` только перенаправляет гостей на вход.
+
+## Безопасность
+
+- Пароли только в виде argon2-хэша, временный пароль сбрасывается при первом входе.
+- Cookie сессии `httpOnly`, `sameSite=lax`, `secure` в production; в БД хранится SHA-256 токена.
+- Ограничение перебора: 5 неудач на логин и 30 на IP за 15 минут.
+- Чужие классы, ученики и результаты возвращают 404.
+- Загрузка файлов: только PDF до 20 МБ, адрес файла проверяется на сервере.
+- Текст новостей выводится как обычный текст (React экранирует), HTML не поддерживается.
+
+## Известные ограничения
+
+- Данные школы и описания пяти типов — заглушки, заполняются в [src/lib/school.ts](src/lib/school.ts) и в админке.
+- Восстановление пароля по email, массовый импорт, редактор тестов, несколько тестов не входят в MVP (см. ТЗ, раздел 18).
+- Расписание хранится на текущий учебный год класса; архив прошлых лет в интерфейсе не реализован.
