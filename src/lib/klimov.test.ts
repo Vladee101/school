@@ -48,3 +48,21 @@ describe("scoreAnswers", () => {
     expect(() => scoreAnswers(a)).toThrow();
   });
 });
+
+describe("равные максимумы", () => {
+  it("находится набор ответов с несколькими доминирующими типами, сумма остаётся 20", () => {
+    let found = false;
+    for (let mask = 0; mask < 1 << 12 && !found; mask++) {
+      const a: Record<number, Option> = {};
+      for (let n = 1; n <= QUESTION_COUNT; n++) a[n] = (mask >> ((n - 1) % 12)) & 1 ? "B" : "A";
+      const { scores, dominant } = scoreAnswers(a);
+      if (dominant.length > 1) {
+        found = true;
+        expect(Object.values(scores).reduce((x, y) => x + y, 0)).toBe(20);
+        const max = Math.max(...Object.values(scores));
+        expect(dominant.every((c) => scores[c] === max)).toBe(true);
+      }
+    }
+    expect(found).toBe(true);
+  });
+});
