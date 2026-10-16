@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { findSession } from "@/lib/session";
 import { ROLE_HOME, type Role } from "@/lib/roles";
 
+export const requireAdmin = () => requireUser(["admin"]);
+
 export const getCurrentUser = cache(async () => (await findSession())?.user ?? null);
 
 /**
