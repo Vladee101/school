@@ -15,7 +15,7 @@ export function CategoryField({ categories, defaultValue }: { categories: string
   return (
     <div className="flex flex-col gap-1 text-sm font-medium">
       <label htmlFor="category-select">Категория</label>
-      <select id="category-select" value={choice} onChange={(e) => setChoice(e.target.value)} className={inputCls}>
+      <select id="category-select" data-field="category" value={choice} onChange={(e) => setChoice(e.target.value)} className={inputCls}>
         {options.map((c) => <option key={c} value={c}>{c}</option>)}
         <option value={OTHER}>Другая категория…</option>
       </select>

@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/dal";
 import { hashPassword, passwordSchema } from "@/lib/password";
 import { destroyAllSessions } from "@/lib/session";
-import type { FormState } from "@/components/action-form";
+import { zodFail, type FormState } from "@/lib/form-state";
 
 const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === "P2002";
 
@@ -32,13 +32,13 @@ const createSchema = z
 export async function createUser(_: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const parsed = createSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return zodFail(parsed.error);
   const { classId, password, role, ...rest } = parsed.data;
 
   let classRow = null;
   if (role === "student") {
     classRow = await prisma.schoolClass.findUnique({ where: { id: classId! } });
-    if (!classRow) return { error: "Класс не найден" };
+    if (!classRow) return { error: "Класс не найден", field: "classId" };
   }
 
   try {
@@ -53,7 +53,7 @@ export async function createUser(_: FormState, formData: FormData): Promise<Form
       },
     });
   } catch (e) {
-    if (isUniqueViolation(e)) return { error: "Такой логин уже занят" };
+    if (isUniqueViolation(e)) return { error: "Такой логин уже занят", field: "login" };
     throw e;
   }
   revalidatePath("/admin/users");
@@ -65,19 +65,19 @@ const updateSchema = z.object({ ...baseFields, classId: optionalId });
 export async function updateUser(id: number, _: FormState, formData: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const parsed = updateSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return zodFail(parsed.error);
 
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) return { error: "Пользователь не найден" };
 
   const isActive = formData.get("isActive") === "on";
-  if (!isActive && user.id === admin.id) return { error: "Нельзя деактивировать собственную учётную запись" };
+  if (!isActive && user.id === admin.id) return { error: "Нельзя деактивировать собственную учётную запись", field: "isActive" };
 
   let classRow = null;
   if (user.role === "student") {
-    if (!parsed.data.classId) return { error: "Для ученика выберите класс" };
+    if (!parsed.data.classId) return { error: "Для ученика выберите класс", field: "classId" };
     classRow = await prisma.schoolClass.findUnique({ where: { id: parsed.data.classId } });
-    if (!classRow) return { error: "Класс не найден" };
+    if (!classRow) return { error: "Класс не найден", field: "classId" };
   }
 
   await prisma.$transaction(async (tx) => {
@@ -99,7 +99,7 @@ export async function updateUser(id: number, _: FormState, formData: FormData): 
 export async function resetPassword(id: number, _: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const parsed = passwordSchema.safeParse(formData.get("password"));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return zodFail(parsed.error, "password");
 
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) return { error: "Пользователь не найден" };

@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { zodFail } from "@/lib/form-state";
 import { prisma } from "@/lib/db";
 import { getDummyHash, verifyPassword } from "@/lib/password";
 import { clearFailedLogins, isLoginBlocked, recordFailedLogin } from "@/lib/rate-limit";
@@ -14,7 +15,7 @@ const schema = z.object({
   password: z.string().min(1, "Введите пароль").max(128),
 });
 
-export type LoginState = { error?: string } | undefined;
+export type LoginState = { error?: string; field?: string } | undefined;
 
 async function clientIp() {
   const h = await headers();
@@ -23,12 +24,12 @@ async function clientIp() {
 
 export async function login(_: LoginState, formData: FormData): Promise<LoginState> {
   const parsed = schema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return zodFail(parsed.error);
   const { login, password } = parsed.data;
   const ip = await clientIp();
 
   if (await isLoginBlocked(login, ip)) {
-    return { error: "Слишком много неудачных попыток входа. Попробуйте через 15 минут." };
+    return { error: "Слишком много неудачных попыток входа. Попробуйте через 15 минут.", field: "login" };
   }
 
   const user = await prisma.user.findUnique({ where: { login } });
@@ -37,7 +38,7 @@ export async function login(_: LoginState, formData: FormData): Promise<LoginSta
   // Одинаковое сообщение для неверного пароля, неизвестного и неактивного пользователя.
   if (!user || !ok || !user.isActive) {
     await recordFailedLogin(login, ip);
-    return { error: "Неверный логин или пароль" };
+    return { error: "Неверный логин или пароль", field: "login,password" };
   }
 
   await clearFailedLogins(login);

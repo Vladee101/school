@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import { useHydrated } from "@/components/use-hydrated";
 import { submitTest } from "./actions";
 
 type Question = { questionNumber: number; optionA: string; optionB: string };
@@ -10,6 +11,7 @@ export function TestForm({ prompt, questions }: { prompt: string; questions: Que
   const [missing, setMissing] = useState<number | null>(null);
   const [state, action, pending] = useActionState(submitTest, undefined);
   const submitted = useRef(false);
+  const hydrated = useHydrated();
   const answered = Object.keys(answers).length;
 
   // Предупреждение при закрытии/обновлении страницы: прохождение не сохраняется.
@@ -36,7 +38,7 @@ export function TestForm({ prompt, questions }: { prompt: string; questions: Que
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate>
+    <form method="post" onSubmit={onSubmit} noValidate>
       <div className="sticky top-14 z-10 -mx-4 bg-gray-50/95 px-4 py-3 backdrop-blur md:top-[3.75rem]">
         <div className="mb-1 flex justify-between text-sm font-semibold">
           <span>Прогресс</span>
@@ -88,7 +90,7 @@ export function TestForm({ prompt, questions }: { prompt: string; questions: Que
       {state?.error && <p role="alert" className="mt-4 font-semibold text-red-600">{state.error}</p>}
 
       <button
-        disabled={pending}
+        disabled={pending || !hydrated}
         className="mt-6 w-full rounded-lg bg-blue-600 px-6 py-3 text-lg font-bold text-white hover:bg-blue-700 disabled:opacity-60 sm:w-auto"
       >
         {pending ? "Сохраняем результат…" : "Завершить тест"}

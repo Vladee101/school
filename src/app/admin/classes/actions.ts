@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/dal";
-import type { FormState } from "@/components/action-form";
+import { zodFail, type FormState } from "@/lib/form-state";
 
 const optionalId = z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().int().positive().optional());
 
@@ -26,14 +26,14 @@ const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === "P2
 export async function createClass(_: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const parsed = classSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
-  if (!(await checkTeacher(parsed.data.teacherId))) return { error: "Учитель не найден или отключён" };
+  if (!parsed.success) return zodFail(parsed.error);
+  if (!(await checkTeacher(parsed.data.teacherId))) return { error: "Учитель не найден или отключён", field: "teacherId" };
 
   let id: number;
   try {
     id = (await prisma.schoolClass.create({ data: { ...parsed.data, teacherId: parsed.data.teacherId ?? null } })).id;
   } catch (e) {
-    if (isUniqueViolation(e)) return { error: "Такой класс в этом учебном году уже существует" };
+    if (isUniqueViolation(e)) return { error: "Такой класс в этом учебном году уже существует", field: "name" };
     throw e;
   }
   revalidatePath("/admin/classes");
@@ -43,8 +43,8 @@ export async function createClass(_: FormState, formData: FormData): Promise<For
 export async function updateClass(id: number, _: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const parsed = classSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
-  if (!(await checkTeacher(parsed.data.teacherId))) return { error: "Учитель не найден или отключён" };
+  if (!parsed.success) return zodFail(parsed.error);
+  if (!(await checkTeacher(parsed.data.teacherId))) return { error: "Учитель не найден или отключён", field: "teacherId" };
 
   const current = await prisma.schoolClass.findUnique({ where: { id } });
   if (!current) return { error: "Класс не найден" };
@@ -56,7 +56,7 @@ export async function updateClass(id: number, _: FormState, formData: FormData):
       prisma.studentClass.updateMany({ where: { classId: id }, data: { academicYear: parsed.data.academicYear } }),
     ]);
   } catch (e) {
-    if (isUniqueViolation(e)) return { error: "Такой класс в этом учебном году уже существует" };
+    if (isUniqueViolation(e)) return { error: "Такой класс в этом учебном году уже существует", field: "name" };
     throw e;
   }
   revalidatePath("/admin/classes");
@@ -66,7 +66,7 @@ export async function updateClass(id: number, _: FormState, formData: FormData):
 export async function addStudent(classId: number, _: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const studentId = Number(formData.get("studentId"));
-  if (!Number.isInteger(studentId) || studentId <= 0) return { error: "Выберите ученика" };
+  if (!Number.isInteger(studentId) || studentId <= 0) return { error: "Выберите ученика", field: "studentId" };
 
   const [cls, student] = await Promise.all([
     prisma.schoolClass.findUnique({ where: { id: classId } }),

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/dal";
-import type { FormState } from "@/components/action-form";
+import { zodFail, type FormState } from "@/lib/form-state";
 
 const schema = z.object({
   title: z.string().trim().min(3, "Заголовок: минимум 3 символа").max(200),
@@ -31,7 +31,7 @@ function revalidateNews(id?: number) {
 export async function createNews(_: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const parsed = schema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return zodFail(parsed.error);
   const { publishedDate, ...data } = parsed.data;
   const isPublished = formData.get("isPublished") === "on";
 
@@ -45,7 +45,7 @@ export async function createNews(_: FormState, formData: FormData): Promise<Form
 export async function updateNews(id: number, _: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const parsed = schema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return zodFail(parsed.error);
   const current = await prisma.news.findUnique({ where: { id } });
   if (!current) return { error: "Новость не найдена" };
 

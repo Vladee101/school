@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/dal";
-import type { FormState } from "@/components/action-form";
+import { zodFail, type FormState } from "@/lib/form-state";
 
 const optionalText = (max: number) =>
   z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), z.string().trim().max(max).optional());
@@ -25,7 +25,7 @@ function revalidateSchedule(classId: number) {
 export async function addLesson(classId: number, _: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const parsed = schema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return zodFail(parsed.error);
 
   const cls = await prisma.schoolClass.findUnique({ where: { id: classId } });
   if (!cls) return { error: "Класс не найден" };
@@ -33,7 +33,7 @@ export async function addLesson(classId: number, _: FormState, formData: FormDat
   const duplicate = await prisma.scheduleEntry.findFirst({
     where: { classId, academicYear: cls.academicYear, dayOfWeek: parsed.data.dayOfWeek, lessonNumber: parsed.data.lessonNumber },
   });
-  if (duplicate) return { error: `На этот день уже есть урок №${parsed.data.lessonNumber} (${duplicate.subject}). Сначала удалите его.` };
+  if (duplicate) return { error: `На этот день уже есть урок №${parsed.data.lessonNumber} (${duplicate.subject}). Сначала удалите его.`, field: "lessonNumber" };
 
   await prisma.scheduleEntry.create({
     data: { ...parsed.data, teacherName: parsed.data.teacherName ?? null, room: parsed.data.room ?? null, classId, academicYear: cls.academicYear },
@@ -52,7 +52,7 @@ export async function deleteLesson(classId: number, entryId: number) {
 export async function copySchedule(classId: number, _: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const sourceId = Number(formData.get("sourceId"));
-  if (!Number.isInteger(sourceId) || sourceId <= 0 || sourceId === classId) return { error: "Выберите другой класс" };
+  if (!Number.isInteger(sourceId) || sourceId <= 0 || sourceId === classId) return { error: "Выберите другой класс", field: "sourceId" };
 
   const [target, source] = await Promise.all([
     prisma.schoolClass.findUnique({ where: { id: classId } }),

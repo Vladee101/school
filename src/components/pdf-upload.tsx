@@ -40,7 +40,7 @@ export function PdfUpload({ currentUrl }: { currentUrl?: string }) {
   return (
     <div className="flex flex-col gap-1 text-sm font-medium">
       PDF-файл
-      <input type="file" accept="application/pdf,.pdf" onChange={onChange} className="rounded border border-gray-300 bg-white px-3 py-2" />
+      <input type="file" data-field="filePath" accept="application/pdf,.pdf" onChange={onChange} className="rounded border border-gray-300 bg-white px-3 py-2" />
       <input type="hidden" name="filePath" value={url} />
       {currentUrl && status.kind === "idle" && (
         <span className="text-xs font-normal text-gray-500">Текущий файл сохранится, если не выбирать новый.</span>

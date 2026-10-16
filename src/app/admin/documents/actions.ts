@@ -6,7 +6,7 @@ import { del } from "@vercel/blob";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/dal";
-import type { FormState } from "@/components/action-form";
+import { zodFail, type FormState } from "@/lib/form-state";
 
 /** Допускаем только PDF из хранилища Vercel Blob (защита от подмены URL в форме). */
 const blobUrl = z
@@ -48,7 +48,7 @@ async function removeBlob(url: string) {
 export async function createDocument(_: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const parsed = schema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return zodFail(parsed.error);
   const isPublished = formData.get("isPublished") === "on";
 
   const doc = await prisma.document.create({
@@ -61,7 +61,7 @@ export async function createDocument(_: FormState, formData: FormData): Promise<
 export async function updateDocument(id: number, _: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const parsed = schema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return zodFail(parsed.error);
   const current = await prisma.document.findUnique({ where: { id } });
   if (!current) return { error: "Документ не найден" };
   const isPublished = formData.get("isPublished") === "on";
