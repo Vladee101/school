@@ -9,7 +9,7 @@ export default async function LoginPage() {
   const user = await getCurrentUser();
   if (user) redirect(ROLE_HOME[user.role]);
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 p-6">
+    <main className="mx-auto flex min-h-[70vh] max-w-sm flex-col justify-center gap-6 p-6">
       <h1 className="text-2xl font-bold">Вход в портал</h1>
       <LoginForm />
     </main>
