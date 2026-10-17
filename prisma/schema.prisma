@@ -128,6 +128,8 @@ model Profession {
   id          Int             @id @default(autoincrement())
   name        String
   description String
+  subjects     String?         // полезные школьные предметы
+  howToExplore String?         @map("how_to_explore") // как познакомиться с профессией
   typeId      Int             @map("type_id")
   type        OrientationType @relation(fields: [typeId], references: [id])
   isActive    Boolean         @default(true) @map("is_active")

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { Field, inputCls } from "@/components/ui";
 
-type Defaults = { name: string; description: string; typeId: number; isActive: boolean };
+type Defaults = { name: string; description: string; subjects: string | null; howToExplore: string | null; typeId: number; isActive: boolean };
 
 export async function ProfessionFields({ defaults }: { defaults?: Defaults }) {
   const types = await prisma.orientationType.findMany({ orderBy: { id: "asc" } });
@@ -15,6 +15,12 @@ export async function ProfessionFields({ defaults }: { defaults?: Defaults }) {
         </select>
       </Field>
       <Field label="Описание"><textarea name="description" defaultValue={defaults?.description} required rows={5} className={inputCls} /></Field>
+      <Field label="Полезные школьные предметы" hint="Через запятую, например: математика, физика, информатика">
+        <input name="subjects" defaultValue={defaults?.subjects ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Как познакомиться с профессией" hint="Кружки, конкурсы, практика, с чего начать">
+        <textarea name="howToExplore" defaultValue={defaults?.howToExplore ?? ""} rows={3} className={inputCls} />
+      </Field>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="isActive" defaultChecked={defaults?.isActive ?? true} /> Активна (показывается в рекомендациях)
       </label>

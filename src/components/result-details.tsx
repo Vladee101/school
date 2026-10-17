@@ -1,3 +1,4 @@
+import { ProfessionCard } from "@/components/profession-card";
 import { ScoreBars } from "@/components/score-bars";
 import { cardCls } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
@@ -19,23 +20,28 @@ export function ResultDetails({ result }: { result: ResultView }) {
           {several ? "Преобладающие направления" : "Преобладающее направление"}
         </h2>
         {several && <p className="mb-3 text-sm text-gray-600">Максимальный балл набран сразу по нескольким направлениям: выражены они в равной степени.</p>}
-        <div className="space-y-5">
+        <div className="space-y-4">
           {result.types.map((t) => (
             <div key={t.code}>
               <h3 className="font-semibold text-emerald-800">{t.name}</h3>
               <p className="mt-1 whitespace-pre-line text-gray-700">{t.description}</p>
-              <h4 className="mt-3 text-sm font-semibold">Рекомендуемые профессии</h4>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-xl font-semibold">Рекомендуемые профессии</h2>
+        <div className="space-y-6">
+          {result.types.map((t) => (
+            <div key={t.code}>
+              {several && <h3 className="mb-2 font-semibold text-emerald-800">{t.name}</h3>}
               {t.professions.length === 0 ? (
-                <p className="text-sm text-gray-500">Список профессий пока не заполнен.</p>
+                <p className="text-sm text-gray-500">Список профессий для направления «{t.name}» пока не заполнен.</p>
               ) : (
-                <ul className="mt-1 list-disc space-y-1 pl-5 text-sm">
-                  {t.professions.map((p) => (
-                    <li key={p.id}>
-                      <span className="font-medium">{p.name}</span>
-                      {p.description && <span className="text-gray-600"> — {p.description}</span>}
-                    </li>
-                  ))}
-                </ul>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {t.professions.map((p) => <ProfessionCard key={p.id} profession={p} typeName={t.name} />)}
+                </div>
               )}
             </div>
           ))}
