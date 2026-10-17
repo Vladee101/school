@@ -12,3 +12,4 @@
 | [0006](0006-vercel-blob-client-upload.md) | PDF в Vercel Blob с прямой загрузкой из браузера | Принято |
 | [0007](0007-login-rate-limiting.md) | Ограничение попыток входа через таблицу в БД | Принято |
 | [0008](0008-scope-decisions-beyond-tz.md) | Решения по пробелам ТЗ | Принято |
+| [0009](0009-form-submission-and-field-highlighting.md) | Отправка форм через onSubmit, блокировка до гидратации, подсветка полей | Принято |
