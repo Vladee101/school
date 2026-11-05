@@ -4,6 +4,8 @@ import { requireUser } from "@/lib/dal";
 import { TYPE_NAMES } from "@/lib/klimov";
 import { formatDateTime } from "@/lib/format";
 import { cardCls } from "@/components/ui";
+import { ScheduleView, type ScheduleRow } from "@/components/schedule-view";
+import { currentDayNumber } from "@/lib/schedule";
 import { logout } from "../logout-action";
 
 export const metadata = { title: "Личный кабинет" };
@@ -21,6 +23,28 @@ export default async function CabinetPage() {
   const last = results[0];
   const dominantNames = (r: (typeof results)[number]) => r.dominant.map((d) => TYPE_NAMES[d.type.code]).join("; ");
 
+  let scheduleRows: ScheduleRow[] | null = null; // null — не удалось получить данные (UC-01 A3)
+  if (studentClass) {
+    try {
+      const entries = await prisma.scheduleEntry.findMany({
+        where: { classId: studentClass.classId, academicYear: studentClass.class.academicYear },
+        include: { teacher: { select: { fullName: true } } },
+        orderBy: [{ dayOfWeek: "asc" }, { lessonNumber: "asc" }],
+      });
+      scheduleRows = entries.map((e) => ({
+        id: e.id,
+        dayOfWeek: e.dayOfWeek,
+        lessonNumber: e.lessonNumber,
+        subject: e.subject,
+        teacherName: e.teacherName,
+        room: e.room,
+        teacherLabel: e.teacher?.fullName ?? null,
+      }));
+    } catch {
+      scheduleRows = null;
+    }
+  }
+
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -28,11 +52,27 @@ export default async function CabinetPage() {
           <h1 className="text-2xl font-bold">{user.fullName}</h1>
           <p className="text-gray-600">{studentClass ? `Класс ${studentClass.class.name}, ${studentClass.academicYear}` : "Класс не назначен"}</p>
         </div>
-        <div className="flex gap-4 text-sm">
-          <Link href="/cabinet/schedule" className="text-blue-700 hover:underline">Расписание</Link>
-          <form action={logout}><button className="text-sm text-blue-700 hover:underline">Выйти</button></form>
-        </div>
+        <form action={logout}><button className="text-sm text-blue-700 hover:underline">Выйти</button></form>
       </div>
+
+      {studentClass && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">Расписание на неделю</h2>
+          {scheduleRows === null && (
+            <div className={cardCls}>
+              <p className="text-gray-600">Не удалось получить расписание. Попробуйте ещё раз позже.</p>
+            </div>
+          )}
+          {scheduleRows !== null && scheduleRows.length === 0 && (
+            <div className={cardCls}>
+              <p className="text-gray-600">Расписание пока не добавлено.</p>
+            </div>
+          )}
+          {scheduleRows !== null && scheduleRows.length > 0 && (
+            <ScheduleView rows={scheduleRows} highlightDay={currentDayNumber()} />
+          )}
+        </section>
+      )}
 
       <section className={cardCls}>
         <h2 className="text-lg font-semibold">Профориентационный тест</h2>

@@ -47,7 +47,7 @@ export default async function MyClassSchedulePage({ searchParams }: PageProps<"/
   return (
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
       <div>
-        <Link href="/teacher/schedule" className="text-sm text-blue-700 hover:underline">← Моё расписание</Link>
+        <Link href="/teacher" className="text-sm text-blue-700 hover:underline">← Панель учителя</Link>
         <h1 className="mt-2 text-2xl font-bold">Расписание моего класса</h1>
       </div>
 

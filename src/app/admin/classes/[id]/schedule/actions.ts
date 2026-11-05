@@ -26,8 +26,6 @@ const schema = z.object({
 function revalidateSchedule(classId: number) {
   revalidatePath(`/admin/classes/${classId}/schedule`);
   revalidatePath("/schedule");
-  revalidatePath("/cabinet/schedule");
-  revalidatePath("/teacher/schedule");
   revalidatePath("/teacher/my-class");
 }
 

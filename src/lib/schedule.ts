@@ -38,3 +38,9 @@ export function groupByDay<T extends ScheduleLessonLike>(lessons: readonly T[]):
   for (const lesson of sorted) byDay.set(lesson.dayOfWeek, [...(byDay.get(lesson.dayOfWeek) ?? []), lesson]);
   return [...byDay];
 }
+
+const DAY_OF_WEEK_BY_SHORT: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+
+/** Текущий день недели (1..7, Пн..Вс) в зоне Europe/Moscow — как все даты интерфейса. */
+export const currentDayNumber = (now: Date = new Date()): number =>
+  DAY_OF_WEEK_BY_SHORT[new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "Europe/Moscow" }).format(now)];
