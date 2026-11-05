@@ -1,11 +1,14 @@
 import { allClasses, scheduleForClass } from "@/lib/public-data";
 import { ScheduleView } from "@/components/schedule-view";
+import { moscowToday } from "@/lib/schedule";
 
 export const metadata = { title: "Расписание" };
 
 export default async function SchedulePage({ searchParams }: PageProps<"/schedule">) {
   const classes = await allClasses();
-  const raw = (await searchParams).class;
+  const sp = await searchParams;
+  const raw = sp.class;
+  const view = { day: typeof sp.day === "string" ? sp.day : undefined, week: typeof sp.week === "string" ? sp.week : undefined };
   const selectedId = Number(Array.isArray(raw) ? raw[0] : raw);
   const selected = classes.find((c) => c.id === selectedId);
   const entries = selected ? await scheduleForClass(selected.id, selected.academicYear) : [];
@@ -34,19 +37,21 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
       {selected && entries.length === 0 && <p className="text-gray-600">Расписание для класса {selected.name} пока не заполнено.</p>}
 
       {selected && entries.length > 0 && (
-        <>
-          <h2 className="mb-3 text-xl font-semibold">Класс {selected.name}, {selected.academicYear} учебный год</h2>
-          <ScheduleView
-            rows={entries.map((e) => ({
-              id: e.id,
-              dayOfWeek: e.dayOfWeek,
-              lessonNumber: e.lessonNumber,
-              subject: e.subject,
-              teacherName: e.teacherName,
-              room: e.room,
-            }))}
-          />
-        </>
+        <ScheduleView
+          rows={entries.map((e) => ({
+            id: e.id,
+            dayOfWeek: e.dayOfWeek,
+            lessonNumber: e.lessonNumber,
+            subject: e.subject,
+            teacherName: e.teacherName,
+            room: e.room,
+          }))}
+          basePath="/schedule"
+          baseQuery={{ class: String(selected.id) }}
+          subtitle={`Класс ${selected.name}, ${selected.academicYear} учебный год`}
+          params={view}
+          todayIso={moscowToday()}
+        />
       )}
     </main>
   );

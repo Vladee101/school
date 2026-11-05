@@ -5,13 +5,16 @@ import { TYPE_NAMES } from "@/lib/klimov";
 import { formatDateTime } from "@/lib/format";
 import { cardCls } from "@/components/ui";
 import { ScheduleView, type ScheduleRow } from "@/components/schedule-view";
-import { currentDayNumber } from "@/lib/schedule";
+import { moscowToday } from "@/lib/schedule";
 import { logout } from "../logout-action";
 
 export const metadata = { title: "Личный кабинет" };
 
-export default async function CabinetPage() {
+export default async function CabinetPage({ searchParams }: PageProps<"/cabinet">) {
   const user = await requireUser(["student"]);
+  const sp = await searchParams;
+  const view = { day: typeof sp.day === "string" ? sp.day : undefined, week: typeof sp.week === "string" ? sp.week : undefined };
+  const today = moscowToday();
   const [studentClass, results] = await Promise.all([
     prisma.studentClass.findUnique({ where: { studentId: user.id }, include: { class: true } }),
     prisma.testResult.findMany({
@@ -57,7 +60,6 @@ export default async function CabinetPage() {
 
       {studentClass && (
         <section>
-          <h2 className="mb-3 text-lg font-semibold">Расписание на неделю</h2>
           {scheduleRows === null && (
             <div className={cardCls}>
               <p className="text-gray-600">Не удалось получить расписание. Попробуйте ещё раз позже.</p>
@@ -69,7 +71,13 @@ export default async function CabinetPage() {
             </div>
           )}
           {scheduleRows !== null && scheduleRows.length > 0 && (
-            <ScheduleView rows={scheduleRows} highlightDay={currentDayNumber()} />
+            <ScheduleView
+              rows={scheduleRows}
+              basePath="/cabinet"
+              subtitle={`Класс ${studentClass.class.name}`}
+              params={view}
+              todayIso={today}
+            />
           )}
         </section>
       )}

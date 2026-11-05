@@ -1,5 +1,15 @@
-import { DAY_NAMES } from "@/lib/format";
-import { groupByDay, lessonTime } from "@/lib/schedule";
+import Link from "next/link";
+import {
+  addDaysIso,
+  dayNumberOfIso,
+  formatDayShort,
+  formatWeekRange,
+  groupByDay,
+  isIsoDate,
+  lessonTime,
+  weekDaysIso,
+  weekStartIso,
+} from "@/lib/schedule";
 
 /** Строка расписания, подготовленная страницей. */
 export type ScheduleRow = {
@@ -15,55 +25,157 @@ export type ScheduleRow = {
   classLabel?: string | null;
 };
 
+/** Параметры вида из URL: выбранный день (1..7) и понедельник недели "YYYY-MM-DD". */
+export type ScheduleViewParams = { day?: string; week?: string };
+
+type Props = {
+  rows: ScheduleRow[];
+  /** Адрес ссылок блока: переключение дней и недель ведёт на эту страницу. */
+  basePath: string;
+  /** Дополнительные параметры ссылки (например, class на страницах с выбором класса). */
+  baseQuery?: Record<string, string | undefined>;
+  params?: ScheduleViewParams;
+  /** «Сегодня» по Москве ("YYYY-MM-DD"): день по умолчанию и маркер на вкладке. */
+  todayIso: string;
+  title?: string;
+  subtitle?: string;
+  showTeacher?: boolean;
+  showClass?: boolean;
+};
+
+const CalendarIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5" aria-hidden>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M8 3v4M16 3v4M3 10h18" />
+  </svg>
+);
+
 /**
- * Единый вид расписания: группировка по дням, внутри дня — по номеру урока,
- * у каждого урока — время из справочника звонков (UC-01, UC-02, UC-03).
+ * Блок «Расписание на неделю» (UC-01–UC-03): вкладки дней с датами и список уроков
+ * выбранного дня, навигация по неделям. Работает без клиентского JS — вкладки и недели
+ * это ссылки с параметрами week/day. Данные — недельный шаблон (ADR-0010): уроки
+ * повторяются из недели в неделю, меняются только отображаемые даты.
  */
 export function ScheduleView({
   rows,
+  basePath,
+  baseQuery = {},
+  params,
+  todayIso,
+  title = "Расписание на неделю",
+  subtitle,
   showTeacher = true,
   showClass = false,
-  highlightDay,
-}: {
-  rows: ScheduleRow[];
-  showTeacher?: boolean;
-  showClass?: boolean;
-  /** Номер текущего дня (1..7) — карточка этого дня подсвечивается бейджем «Сегодня». */
-  highlightDay?: number;
-}) {
+}: Props) {
   const byDay = groupByDay(rows);
-  if (byDay.length === 0) return null;
+  const lessonsOfDay = (d: number) => byDay.find(([day]) => day === d)?.[1] ?? [];
+
+  // Неделя из URL (нормализуем к понедельнику) или текущая.
+  const weekStart = params?.week && isIsoDate(params.week) ? weekStartIso(params.week) : weekStartIso(todayIso);
+  const days = weekDaysIso(weekStart);
+
+  // Вкладки: Пн–Сб всегда, Вс — только если в шаблоне есть уроки.
+  const visibleDays = [...Array.from({ length: 6 }, (_, i) => i + 1), ...(lessonsOfDay(7).length > 0 ? [7] : [])];
+
+  // Выбранный день: из URL, иначе сегодняшний день недели (если виден), иначе первый видимый.
+  const urlDay = Number(params?.day);
+  const todayDay = dayNumberOfIso(todayIso);
+  const selected =
+    Number.isInteger(urlDay) && visibleDays.includes(urlDay)
+      ? urlDay
+      : visibleDays.includes(todayDay)
+        ? todayDay
+        : visibleDays[0];
+
+  const href = (day: number, weekIso: string) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(baseQuery)) if (v) q.set(k, v);
+    q.set("week", weekIso);
+    q.set("day", String(day));
+    return `${basePath}?${q.toString()}`;
+  };
+
+  const lastIso = days[visibleDays[visibleDays.length - 1] - 1];
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {byDay.map(([day, lessons]) => (
-        <section key={day} className={day === highlightDay ? "rounded-xl border border-blue-300 bg-white p-4 ring-2 ring-blue-100" : "rounded-xl border border-gray-200 bg-white p-4"}>
-          <h3 className="mb-2 flex items-center gap-2 font-semibold text-blue-900">
-            {DAY_NAMES[day]}
-            {day === highlightDay && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">Сегодня</span>}
-          </h3>
-          <ol className="space-y-1 text-sm">
-            {lessons.map((l) => {
-              const time = lessonTime(l.lessonNumber);
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-5 pb-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+            <CalendarIcon />
+          </span>
+          <div>
+            <h2 className="text-lg font-semibold">{title}</h2>
+            {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={href(selected, addDaysIso(weekStart, -7))}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-lg text-gray-500 hover:bg-gray-50"
+            aria-label="Предыдущая неделя"
+          >
+            ‹
+          </Link>
+          <span className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium whitespace-nowrap">
+            {formatWeekRange(days[0], lastIso)}
+          </span>
+          <Link
+            href={href(selected, addDaysIso(weekStart, 7))}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-lg text-gray-500 hover:bg-gray-50"
+            aria-label="Следующая неделя"
+          >
+            ›
+          </Link>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto px-5">
+        <div className="flex w-full min-w-max gap-2 pb-4">
+          {visibleDays.map((d) => {
+            const iso = days[d - 1];
+            const active = d === selected;
+            return (
+              <Link
+                key={d}
+                href={href(d, weekStart)}
+                className={`min-w-[7.5rem] flex-1 rounded-lg px-4 py-2 text-center text-sm whitespace-nowrap ${
+                  active ? "bg-blue-600 font-semibold text-white" : "bg-gray-50 font-medium text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                {formatDayShort(iso)}
+                {iso === todayIso && !active && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-blue-500" aria-label="Сегодня" />}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="px-5 pb-5">
+        {lessonsOfDay(selected).length === 0 ? (
+          <p className="rounded-lg bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">Уроков нет</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {lessonsOfDay(selected).map((l) => {
               const teacher = showTeacher ? (l.teacherLabel ?? l.teacherName) : null;
-              const details = [
-                showClass && l.classLabel ? `класс ${l.classLabel}` : null,
-                l.room ? `каб. ${l.room}` : null,
-                teacher,
-              ].filter(Boolean) as string[];
+              const middle = showClass && l.classLabel ? `Класс: ${l.classLabel}` : teacher;
+              const metaMobile = [middle, l.room ? `Каб. ${l.room}` : null].filter(Boolean).join(" · ");
               return (
-                <li key={l.id} className="flex gap-2">
-                  <span className="w-5 shrink-0 text-gray-500 tabular-nums">{l.lessonNumber}.</span>
-                  <span>
-                    {time && <span className="text-gray-500">{time} · </span>}
-                    {l.subject}
-                    {details.length > 0 && <span className="text-gray-500"> · {details.join(", ")}</span>}
-                  </span>
+                <li key={l.id} className="py-3 sm:grid sm:grid-cols-[5.5rem_1fr_10rem_5rem] sm:items-center sm:gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-50 text-sm font-semibold text-blue-700">{l.lessonNumber}</span>
+                    <span className="text-sm tabular-nums text-gray-500">{lessonTime(l.lessonNumber)}</span>
+                  </div>
+                  <div className="font-semibold">{l.subject}</div>
+                  <div className="hidden text-sm text-gray-500 sm:block">{middle}</div>
+                  <div className="hidden text-sm text-gray-500 sm:block sm:text-right">{l.room ? `Каб. ${l.room}` : ""}</div>
+                  <div className="mt-1 text-sm text-gray-500 sm:hidden">{metaMobile}</div>
                 </li>
               );
             })}
-          </ol>
-        </section>
-      ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

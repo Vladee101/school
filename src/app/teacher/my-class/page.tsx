@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/dal";
 import { btnCls, cardCls, inputCls } from "@/components/ui";
 import { ScheduleView, type ScheduleRow } from "@/components/schedule-view";
+import { moscowToday } from "@/lib/schedule";
 
 export const metadata = { title: "Расписание моего класса" };
 
@@ -20,7 +21,9 @@ export default async function MyClassSchedulePage({ searchParams }: PageProps<"/
   });
   if (supervised.length === 0) notFound();
 
-  const raw = (await searchParams).class;
+  const sp = await searchParams;
+  const raw = sp.class;
+  const view = { day: typeof sp.day === "string" ? sp.day : undefined, week: typeof sp.week === "string" ? sp.week : undefined };
   const requested = Number(Array.isArray(raw) ? raw[0] : raw);
   const selected = supervised.find((c) => c.id === requested) ?? supervised[0];
 
@@ -78,10 +81,14 @@ export default async function MyClassSchedulePage({ searchParams }: PageProps<"/
       )}
 
       {rows !== null && rows.length > 0 && (
-        <>
-          <h2 className="text-lg font-semibold">Класс {selected.name}, {selected.academicYear} учебный год</h2>
-          <ScheduleView rows={rows} />
-        </>
+        <ScheduleView
+          rows={rows}
+          basePath="/teacher/my-class"
+          baseQuery={{ class: String(selected.id) }}
+          subtitle={`Класс ${selected.name}, ${selected.academicYear} учебный год`}
+          params={view}
+          todayIso={moscowToday()}
+        />
       )}
     </main>
   );

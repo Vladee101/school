@@ -3,13 +3,16 @@ import { prisma } from "@/lib/db";
 import { cardCls } from "@/components/ui";
 import { classScope, requireStaff } from "@/lib/teacher-access";
 import { ScheduleView, type ScheduleRow } from "@/components/schedule-view";
-import { currentDayNumber } from "@/lib/schedule";
+import { moscowToday } from "@/lib/schedule";
 import { logout } from "../logout-action";
 
 export const metadata = { title: "Панель учителя" };
 
-export default async function TeacherHome() {
+export default async function TeacherHome({ searchParams }: PageProps<"/teacher">) {
   const user = await requireStaff();
+  const sp = await searchParams;
+  const view = { day: typeof sp.day === "string" ? sp.day : undefined, week: typeof sp.week === "string" ? sp.week : undefined };
+  const today = moscowToday();
   const classes = await prisma.schoolClass.findMany({
     where: classScope(user),
     orderBy: [{ academicYear: "desc" }, { name: "asc" }],
@@ -69,7 +72,15 @@ export default async function TeacherHome() {
             </div>
           )}
           {scheduleRows !== null && scheduleRows.length > 0 && (
-            <ScheduleView rows={scheduleRows} showTeacher={false} showClass highlightDay={currentDayNumber()} />
+            <ScheduleView
+              rows={scheduleRows}
+              basePath="/teacher"
+              subtitle="Мои уроки"
+              showTeacher={false}
+              showClass
+              params={view}
+              todayIso={today}
+            />
           )}
         </section>
       )}
