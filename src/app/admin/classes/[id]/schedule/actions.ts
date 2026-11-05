@@ -9,17 +9,26 @@ import { zodFail, type FormState } from "@/lib/form-state";
 const optionalText = (max: number) =>
   z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), z.string().trim().max(max).optional());
 
+const optionalInt = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+  z.coerce.number().int().positive().optional(),
+);
+
 const schema = z.object({
   dayOfWeek: z.coerce.number().int().min(1, "Выберите день").max(7),
   lessonNumber: z.coerce.number().int().min(1, "Номер урока от 1 до 12").max(12, "Номер урока от 1 до 12"),
   subject: z.string().trim().min(2, "Укажите предмет").max(100),
   teacherName: optionalText(100),
+  teacherId: optionalInt,
   room: optionalText(20),
 });
 
 function revalidateSchedule(classId: number) {
   revalidatePath(`/admin/classes/${classId}/schedule`);
   revalidatePath("/schedule");
+  revalidatePath("/cabinet/schedule");
+  revalidatePath("/teacher/schedule");
+  revalidatePath("/teacher/my-class");
 }
 
 export async function addLesson(classId: number, _: FormState, formData: FormData): Promise<FormState> {
@@ -35,8 +44,22 @@ export async function addLesson(classId: number, _: FormState, formData: FormDat
   });
   if (duplicate) return { error: `На этот день уже есть урок №${parsed.data.lessonNumber} (${duplicate.subject}). Сначала удалите его.`, field: "lessonNumber" };
 
+  if (parsed.data.teacherId !== undefined) {
+    const teacher = await prisma.user.findFirst({ where: { id: parsed.data.teacherId, role: "teacher", isActive: true } });
+    if (!teacher) return { error: "Выбранный учитель не найден", field: "teacherId" };
+  }
+
   await prisma.scheduleEntry.create({
-    data: { ...parsed.data, teacherName: parsed.data.teacherName ?? null, room: parsed.data.room ?? null, classId, academicYear: cls.academicYear },
+    data: {
+      classId,
+      academicYear: cls.academicYear,
+      dayOfWeek: parsed.data.dayOfWeek,
+      lessonNumber: parsed.data.lessonNumber,
+      subject: parsed.data.subject,
+      room: parsed.data.room ?? null,
+      teacherName: parsed.data.teacherName ?? null,
+      teacherId: parsed.data.teacherId ?? null,
+    },
   });
   revalidateSchedule(classId);
   return { ok: "Урок добавлен" };
@@ -68,7 +91,7 @@ export async function copySchedule(classId: number, _: FormState, formData: Form
     prisma.scheduleEntry.createMany({
       data: lessons.map((l) => ({
         classId, academicYear: target.academicYear, dayOfWeek: l.dayOfWeek, lessonNumber: l.lessonNumber,
-        subject: l.subject, teacherName: l.teacherName, room: l.room,
+        subject: l.subject, teacherName: l.teacherName, teacherId: l.teacherId, room: l.room,
       })),
     }),
   ]);

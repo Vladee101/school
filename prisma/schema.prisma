@@ -42,6 +42,7 @@ model User {
 
   sessions       Session[]
   taughtClasses  SchoolClass[]  @relation("ClassTeacher")
+  taughtLessons  ScheduleEntry[] @relation("LessonTeacher")
   studentClass   StudentClass?
   results        TestResult[]
 
@@ -217,9 +218,14 @@ model ScheduleEntry {
   lessonNumber Int         @map("lesson_number")
   subject      String
   teacherName  String?     @map("teacher_name")
+  // Связь с учётной записью учителя (UC-02 «Моё расписание»). teacherName остаётся
+  // для отображения и внешних преподавателей без учётной записи.
+  teacherId    Int?        @map("teacher_id")
+  teacher      User?       @relation("LessonTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
   room         String?
 
   @@index([classId, academicYear])
+  @@index([teacherId])
   @@map("schedule_entries")
 }
 

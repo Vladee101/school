@@ -1,5 +1,5 @@
 import { allClasses, scheduleForClass } from "@/lib/public-data";
-import { DAY_NAMES } from "@/lib/format";
+import { ScheduleView } from "@/components/schedule-view";
 
 export const metadata = { title: "Расписание" };
 
@@ -9,9 +9,6 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
   const selectedId = Number(Array.isArray(raw) ? raw[0] : raw);
   const selected = classes.find((c) => c.id === selectedId);
   const entries = selected ? await scheduleForClass(selected.id, selected.academicYear) : [];
-
-  const byDay = new Map<number, typeof entries>();
-  for (const e of entries) byDay.set(e.dayOfWeek, [...(byDay.get(e.dayOfWeek) ?? []), e]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -39,26 +36,16 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
       {selected && entries.length > 0 && (
         <>
           <h2 className="mb-3 text-xl font-semibold">Класс {selected.name}, {selected.academicYear} учебный год</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...byDay].map(([day, lessons]) => (
-              <section key={day} className="rounded-xl border border-gray-200 bg-white p-4">
-                <h3 className="mb-2 font-semibold text-blue-900">{DAY_NAMES[day]}</h3>
-                <ol className="space-y-1 text-sm">
-                  {lessons.map((l) => (
-                    <li key={l.id} className="flex gap-2">
-                      <span className="w-5 shrink-0 text-gray-500">{l.lessonNumber}.</span>
-                      <span>
-                        {l.subject}
-                        {(l.room || l.teacherName) && (
-                          <span className="text-gray-500"> · {[l.room && `каб. ${l.room}`, l.teacherName].filter(Boolean).join(", ")}</span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ))}
-          </div>
+          <ScheduleView
+            rows={entries.map((e) => ({
+              id: e.id,
+              dayOfWeek: e.dayOfWeek,
+              lessonNumber: e.lessonNumber,
+              subject: e.subject,
+              teacherName: e.teacherName,
+              room: e.room,
+            }))}
+          />
         </>
       )}
     </main>

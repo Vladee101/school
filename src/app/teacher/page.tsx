@@ -24,7 +24,9 @@ export default async function TeacherHome() {
           <h1 className="text-2xl font-bold">{user.role === "admin" ? "Результаты по классам" : "Панель учителя"}</h1>
           <p className="text-sm text-gray-600">{user.fullName}{user.role === "admin" && " · просмотр всех классов"}</p>
         </div>
-        <div className="flex gap-4 text-sm">
+        <div className="flex flex-wrap gap-4 text-sm">
+          {user.role === "teacher" && <Link href="/teacher/schedule" className="text-blue-700 hover:underline">Моё расписание</Link>}
+          {user.role === "teacher" && classes.length > 0 && <Link href="/teacher/my-class" className="text-blue-700 hover:underline">Расписание моего класса</Link>}
           {user.role === "admin" && <Link href="/admin" className="text-blue-700 hover:underline">← Администрирование</Link>}
           <form action={logout}><button className="text-blue-700 hover:underline">Выйти</button></form>
         </div>

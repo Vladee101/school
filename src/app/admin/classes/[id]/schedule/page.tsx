@@ -16,12 +16,14 @@ export default async function ClassSchedulePage({ params }: PageProps<"/admin/cl
   const cls = await prisma.schoolClass.findUnique({ where: { id } });
   if (!cls) notFound();
 
-  const [lessons, others] = await Promise.all([
+  const [lessons, others, teachers] = await Promise.all([
     prisma.scheduleEntry.findMany({
       where: { classId: id, academicYear: cls.academicYear },
+      include: { teacher: { select: { fullName: true } } },
       orderBy: [{ dayOfWeek: "asc" }, { lessonNumber: "asc" }],
     }),
     prisma.schoolClass.findMany({ where: { id: { not: id } }, orderBy: [{ academicYear: "desc" }, { name: "asc" }] }),
+    prisma.user.findMany({ where: { role: "teacher", isActive: true }, orderBy: { fullName: "asc" } }),
   ]);
   const byDay = new Map<number, typeof lessons>();
   for (const l of lessons) byDay.set(l.dayOfWeek, [...(byDay.get(l.dayOfWeek) ?? []), l]);
@@ -43,7 +45,15 @@ export default async function ClassSchedulePage({ params }: PageProps<"/admin/cl
           </Field>
           <Field label="Номер урока"><input name="lessonNumber" type="number" min={1} max={12} defaultValue={1} required className={inputCls} /></Field>
           <Field label="Предмет"><input name="subject" required className={inputCls} /></Field>
-          <Field label="Учитель (необязательно)"><input name="teacherName" className={inputCls} /></Field>
+          <Field label="Учитель из списка (необязательно)" hint="Урок появится в «Моём расписании» этого учителя (UC-02).">
+            <select name="teacherId" defaultValue="" className={inputCls}>
+              <option value="">— учитель без учётной записи —</option>
+              {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+            </select>
+          </Field>
+          <Field label="Имя преподавателя текстом (необязательно)" hint="Для внешних преподавателей; показывается, если учитель не выбран из списка.">
+            <input name="teacherName" className={inputCls} />
+          </Field>
           <Field label="Кабинет (необязательно)"><input name="room" className={inputCls} /></Field>
         </ActionForm>
       </section>
@@ -60,7 +70,7 @@ export default async function ClassSchedulePage({ params }: PageProps<"/admin/cl
                   <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
                     <span>
                       {l.lessonNumber}. {l.subject}
-                      <span className="text-gray-500">{[l.room && ` · каб. ${l.room}`, l.teacherName && ` · ${l.teacherName}`].filter(Boolean).join("")}</span>
+                      <span className="text-gray-500">{[l.room && ` · каб. ${l.room}`, (l.teacher?.fullName ?? l.teacherName) && ` · ${l.teacher?.fullName ?? l.teacherName}`].filter(Boolean).join("")}</span>
                     </span>
                     <form action={deleteLesson.bind(null, cls.id, l.id)}><button className={dangerCls}>Удалить</button></form>
                   </li>

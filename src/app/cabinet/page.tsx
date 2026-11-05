@@ -28,7 +28,10 @@ export default async function CabinetPage() {
           <h1 className="text-2xl font-bold">{user.fullName}</h1>
           <p className="text-gray-600">{studentClass ? `Класс ${studentClass.class.name}, ${studentClass.academicYear}` : "Класс не назначен"}</p>
         </div>
-        <form action={logout}><button className="text-sm text-blue-700 hover:underline">Выйти</button></form>
+        <div className="flex gap-4 text-sm">
+          <Link href="/cabinet/schedule" className="text-blue-700 hover:underline">Расписание</Link>
+          <form action={logout}><button className="text-sm text-blue-700 hover:underline">Выйти</button></form>
+        </div>
       </div>
 
       <section className={cardCls}>
