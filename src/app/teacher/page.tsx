@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { cardCls } from "@/components/ui";
 import { classScope, requireStaff } from "@/lib/teacher-access";
 import { ScheduleView, type ScheduleRow } from "@/components/schedule-view";
+import { CabinetTabs, type CabinetTab } from "@/components/cabinet-tabs";
 import { moscowToday } from "@/lib/schedule";
 import { logout } from "../logout-action";
 
@@ -12,7 +13,9 @@ export default async function TeacherHome({ searchParams }: PageProps<"/teacher"
   const user = await requireStaff();
   const sp = await searchParams;
   const view = { day: typeof sp.day === "string" ? sp.day : undefined, week: typeof sp.week === "string" ? sp.week : undefined };
+  const tab: CabinetTab = sp.tab === "testing" ? "testing" : "schedule"; // без параметра — вкладка расписания
   const today = moscowToday();
+  // Классы нужны и на вкладке «Тестирование», и в шапке для ссылки «Расписание моего класса».
   const classes = await prisma.schoolClass.findMany({
     where: classScope(user),
     orderBy: [{ academicYear: "desc" }, { name: "asc" }],
@@ -23,7 +26,7 @@ export default async function TeacherHome({ searchParams }: PageProps<"/teacher"
   });
 
   let scheduleRows: ScheduleRow[] | null = null; // null — не удалось получить данные (UC-02 A2)
-  if (user.role === "teacher") {
+  if (user.role === "teacher" && tab === "schedule") {
     try {
       const entries = await prisma.scheduleEntry.findMany({
         where: { teacherId: user.id },
@@ -58,7 +61,9 @@ export default async function TeacherHome({ searchParams }: PageProps<"/teacher"
         </div>
       </div>
 
-      {user.role === "teacher" && (
+      {user.role === "teacher" && <CabinetTabs basePath="/teacher" active={tab} className="mb-6" />}
+
+      {user.role === "teacher" && tab === "schedule" && (
         <section className="mb-6">
           <h2 className="mb-3 text-lg font-semibold">Расписание на неделю</h2>
           {scheduleRows === null && (
@@ -85,23 +90,24 @@ export default async function TeacherHome({ searchParams }: PageProps<"/teacher"
         </section>
       )}
 
-      {classes.length === 0 ? (
-        <p className="text-gray-600">Вам пока не назначены классы. Обратитесь к администратору.</p>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {classes.map((c) => {
-            const total = c.students.length;
-            const passed = c.students.filter((s) => s.student._count.results > 0).length;
-            return (
-              <Link key={c.id} href={`/teacher/classes/${c.id}`} className={`${cardCls} hover:border-blue-400`}>
-                <h2 className="text-xl font-semibold text-blue-900">Класс {c.name}</h2>
-                <p className="text-sm text-gray-500">{c.academicYear}{user.role === "admin" && ` · ${c.teacher?.fullName ?? "учитель не назначен"}`}</p>
-                <p className="mt-3 text-sm">Учеников: <b>{total}</b> · прошли тест: <b>{passed}</b></p>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      {(user.role === "admin" || tab === "testing") &&
+        (classes.length === 0 ? (
+          <p className="text-gray-600">Вам пока не назначены классы. Обратитесь к администратору.</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {classes.map((c) => {
+              const total = c.students.length;
+              const passed = c.students.filter((s) => s.student._count.results > 0).length;
+              return (
+                <Link key={c.id} href={`/teacher/classes/${c.id}`} className={`${cardCls} hover:border-blue-400`}>
+                  <h2 className="text-xl font-semibold text-blue-900">Класс {c.name}</h2>
+                  <p className="text-sm text-gray-500">{c.academicYear}{user.role === "admin" && ` · ${c.teacher?.fullName ?? "учитель не назначен"}`}</p>
+                  <p className="mt-3 text-sm">Учеников: <b>{total}</b> · прошли тест: <b>{passed}</b></p>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
     </main>
   );
 }
